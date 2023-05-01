@@ -1,0 +1,216 @@
+/* SQL Challenge
+Discrepancy in company's financials
+Objective:
+- Get a list of suspects
+- Narrow your list 
+- Pinpoint your prime suspect(s)
+Challenge 1:
+1. How many transactions took place between the yeras 2011 and 2012
+2. How much money did WSDA Musi make during the same period? 
+*/
+
+SELECT
+    COUNT(InvoiceId),
+    ROUND(SUM(Total),2) AS [Income between 2011-2012]
+FROM 
+    Invoice
+WHERE 
+    DATE(InvoiceDate) BETWEEN '2011-01-01' AND '2012-12-31';
+    
+/*
+1. Get a list of customers who made purchases between 2011 and 2012
+2. Get a list of customers, sales reps, and total transaction amounts for each customer between 2011 and 2012
+3. How many transactions are above the average transaction amount during that same time period
+4. What is the average transaction amount for each year that WSDA Music has been in business for?
+*/ 
+SELEcT
+    c.FirstName,
+    c.LastName,
+    i.InvoiceDate,
+    i.Total,
+    c.FirstName || ' ' || c.LastName AS Name
+FROM 
+    Invoice AS i
+INNER JOIN
+    Customer as c
+ON 
+    i.CustomerId = c.CustomerId
+WHERE 
+    DATE(i.InvoiceDate) BETWEEN '2011-01-01' AND '2012-12-31'
+ORDER BY 
+    i.Total;
+    
+-- Question 2 & 3
+---------------------------------
+SELECT 
+    --c.FirstName || ' ' || c.LastName AS [Name],
+    c.FirstName AS [Customer First Name], 
+    c.LastName AS [Customer Last Name],
+    e.FirstName AS [Employee First Name], 
+    e.LastName AS [Employee Last Name], 
+    i.InvoiceDate,
+    SUM(i.Total) AS [Total Transaction Amount],
+    CASE 
+    WHEN SUM(i.Total) > AVG(i.Total) THEN 'Above Average'
+    ELSE "Below Average"
+    END
+FROM 
+    Invoice As i
+INNER JOIN 
+    Customer As c
+ON 
+    i.CustomerId = c.CustomerId
+INNER JOIN
+    Employee AS e
+ON 
+   c.SupportRepId = e.EmployeeId 
+WHERE 
+    DATE(i.InvoiceDate) BETWEEN '2011-01-01' AND '2012-12-31'
+GROUP BY 
+    c.LastName
+ORDER BY 
+    i.InvoiceDate ASC;
+    
+
+---------------------------
+-- 4. What is the average transaction amount for each year that WSDA Music has been in business for?
+SELECT 
+    ROUND(AVG(Total),2) AS [Average Annual Transaction Amount],
+    SUBSTR(DATE(InvoiceDate), 1, 4) AS [Year]
+FROM 
+    Invoice
+GROUP BY 
+    SUBSTR(DATE(InvoiceDate), 1, 4)
+ORDER BY 
+    Year;
+    
+-- 1. Get a list of employees who exceeded the average transaction amount
+-- from sales they generated during 2011-2012
+
+SELECT 
+    DISTINCT SupportRepId
+FROM 
+    Customer;
+
+-- Only three of the support reps represented in Customer table    
+SELECT 
+    AVG(Total) AS [Global Average Transaction Amount ]
+FROM 
+    Invoice;
+
+SELECT 
+    e.FirstName,
+    e.LastName,
+    ROUND(SUM(i.Total)/COUNT(e.LastName), 2) AS [Employee Average Transaction Amount], -- Average transaction amount
+    (SELECT ROUND(AVG(Total),2) FROM Invoice) AS [Global Average]
+    /*CASE 
+    WHEN [Employee Average Transaction Amount] > [Global Average] THEN 'Y'
+    ELSE "N"
+    END AS [Above Average?]*/
+FROM 
+    Invoice As i
+INNER JOIN 
+    Customer As c
+ON 
+    i.CustomerId = c.CustomerId
+INNER JOIN
+    Employee AS e
+ON 
+   c.SupportRepId = e.EmployeeId 
+WHERE 
+    DATE(i.InvoiceDate) BETWEEN '2011-01-01' AND '2012-12-31' 
+GROUP BY 
+    e.LastName, e.FirstName 
+HAVING 
+    [Employee Average Transaction Amount] >
+    (SELECT 
+        AVG(Total)
+    FROM 
+        Invoice);
+        
+---------------------------------------
+-- Create a commission payout column, 15% of sales
+
+SELECT 
+    e.FirstName,
+    e.LastName,
+    ROUND(SUM(i.Total), 2) AS [Employee Total Revenue], -- Average transaction amount
+    ROUND(ROUND(SUM(i.Total), 2) * .15, 2) AS "Commission Payout"
+    
+FROM 
+    Invoice As i
+INNER JOIN 
+    Customer As c
+ON 
+    i.CustomerId = c.CustomerId
+INNER JOIN
+    Employee AS e
+ON 
+   c.SupportRepId = e.EmployeeId 
+WHERE 
+    DATE(i.InvoiceDate) BETWEEN '2011-01-01' AND '2012-12-31' 
+GROUP BY 
+    e.LastName, e.FirstName ;
+
+
+    
+
+----------------------
+-- 3. Which employee made the highest commission
+    
+SELECT 
+    e.FirstName,
+    e.LastName,
+    ROUND(ROUND(SUM(i.Total), 2) * .15, 2) AS "Highest Commission Payout"
+FROM 
+    Invoice As i
+INNER JOIN 
+    Customer As c
+ON 
+    i.CustomerId = c.CustomerId
+INNER JOIN
+    Employee AS e
+ON 
+   c.SupportRepId = e.EmployeeId 
+WHERE 
+    DATE(i.InvoiceDate) BETWEEN '2011-01-01' AND '2012-12-31' 
+GROUP BY 
+    e.LastName, e.FirstName 
+ORDER BY 
+    SUM(i.Total) DESC
+LIMIT 1;
+
+------------------------
+-- Which customer made the highest purchase ?
+SELECT 
+   c.LastName AS "Customer Last Name",
+   c.FirstName AS "Customer First Name", 
+   MAX(i.Total) AS "Highest Purchase"
+FROM 
+    Invoice As i
+INNER JOIN 
+    Customer As c
+ON 
+    i.CustomerId = c.CustomerId
+INNER JOIN
+    Employee AS e
+ON 
+   c.SupportRepId = e.EmployeeId 
+WHERE 
+    e.LastName = "Peacock"
+ORDER BY 
+    i.Total DESC;
+---------------------------
+
+--Look at this customer record - do you see anything suspicious 
+SELECT 
+   *
+FROM 
+    Invoice As i
+INNER JOIN 
+    Customer As c
+ON 
+    i.CustomerId = c.CustomerId
+WHERE 
+    c.LastName = "Doeein"
+
